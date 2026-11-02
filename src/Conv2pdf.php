@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Conv2pdf;
 
 /**
- * PHP client for the conv2pdf API — PDF conversion and manipulation, hosted in the EU (France).
+ * PHP client for the Conv2pdf API — PDF conversion and manipulation, hosted in the EU (France).
  *
  * Example:
  *   $c = new Conv2pdf('cpdf_live_...');
@@ -28,7 +28,7 @@ final class Conv2pdf
     private int $stallTimeout;
 
     /**
-     * @param string $apiKey       API key in the cpdf_live_... format (from the conv2pdf dashboard).
+     * @param string $apiKey       API key in the cpdf_live_... format (from the Conv2pdf dashboard).
      * @param string $baseUrl      API root (defaults to production).
      * @param int    $timeout      Hard cap on a whole request in seconds, upload and download
      *                             included; 0 = none. Stalls are caught separately (see

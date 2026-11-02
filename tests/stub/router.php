@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Stub of the conv2pdf API for tests/functional.php, served by PHP's built-in server:
+ * Stub of the Conv2pdf API for tests/functional.php, served by PHP's built-in server:
  *
  *   php -S 127.0.0.1:18765 tests/stub/router.php
  *

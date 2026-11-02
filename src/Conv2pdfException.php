@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Conv2pdf;
 
 /**
- * Error returned by the conv2pdf client: an API error (4xx/5xx) or a network error.
+ * Error returned by the Conv2pdf client: an API error (4xx/5xx) or a network error.
  *
  * Match on getErrorCode(), never on getMessage(): codes are part of the API contract,
  * messages are not. getPayload() carries the rest of the error body, getRetryAfter()

@@ -1,6 +1,6 @@
 # conv2pdf/php
 
-Official PHP SDK for the [conv2pdf API](https://conv2pdf.com/api/): PDF conversion and manipulation (19 tools), **hosted in the EU (France)**, GDPR-compliant, DPA provided. A thin wrapper with **zero dependencies** (`ext-curl` only).
+Official PHP SDK for the [Conv2pdf API](https://conv2pdf.com/api/): PDF conversion and manipulation (19 tools), **hosted in the EU (France)**, GDPR-compliant, DPA provided. A thin wrapper with **zero dependencies** (`ext-curl` only).
 
 ## Installation
 

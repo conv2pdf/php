@@ -2,7 +2,7 @@
 
 /**
  * Functional test: the SDK against a stub of the API served by PHP's built-in server
- * (tests/stub/router.php). No conv2pdf server, no API key, no network beyond localhost.
+ * (tests/stub/router.php). No Conv2pdf server, no API key, no network beyond localhost.
  *
  * It checks what the smoke test cannot: what the server actually RECEIVES (multipart
  * file names, fields, User-Agent, Authorization, HTTP method) and what the SDK makes
