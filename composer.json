@@ -7,7 +7,7 @@
     "homepage": "https://conv2pdf.com/api/",
     "support": {
         "docs": "https://conv2pdf.com/api/documentation/",
-        "source": "https://github.com/jamalofski/conv2pdf-php"
+        "source": "https://github.com/conv2pdf/php"
     },
     "authors": [
         { "name": "Jamal Tantaoui", "homepage": "https://tantaoui.com" }
