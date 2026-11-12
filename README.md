@@ -1,6 +1,6 @@
 # conv2pdf/php
 
-Official PHP SDK for the [Conv2pdf API](https://conv2pdf.com/api/): PDF conversion and manipulation (19 tools), **hosted in the EU (France)**, GDPR-compliant, DPA provided. A thin wrapper with **zero dependencies** (`ext-curl` only).
+Official PHP SDK for the [Conv2pdf API](https://conv2pdf.com/api/): PDF conversion and manipulation (20 tools), **hosted in the EU (France)**, GDPR-compliant, DPA provided. A thin wrapper with **zero dependencies** (`ext-curl` only).
 
 ## Installation
 
@@ -21,7 +21,7 @@ $job = $c->convert('pdf-to-word', 'report.pdf');
 $c->download($job['download_url'], 'report.docx');
 ```
 
-Every tool works the same way, an e-book or a PostScript file included: `$c->convert('epub-to-pdf', 'book.epub')`, `$c->convert('ps-to-pdf', 'drawing.eps')`. A web page is the one exception: it comes from an address, not a file (see [Web pages](#web-pages)).
+Every tool works the same way, an e-book, a PostScript or an XPS file included: `$c->convert('epub-to-pdf', 'book.epub')`, `$c->convert('ps-to-pdf', 'drawing.eps')`, `$c->convert('xps-to-pdf', 'invoice.xps')`. A web page is the one exception: it comes from an address, not a file (see [Web pages](#web-pages)).
 
 ## Usage
 
