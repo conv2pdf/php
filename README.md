@@ -8,7 +8,7 @@ Official PHP SDK for the [Conv2pdf API](https://conv2pdf.com/api/): PDF conversi
 composer require conv2pdf/php
 ```
 
-Requires PHP 8.0 to 8.5 (every version is covered by CI) and the `curl` extension. [Get a free API key](https://conv2pdf.com/api/) (Dev plan: 300 free conversions at signup, valid 12 months, no card).
+Requires PHP 8.0 to 8.6 (every version is covered by CI) and the `curl` extension. [Get a free API key](https://conv2pdf.com/api/) (Dev plan: 300 free conversions at signup, valid 12 months, no card).
 
 ## Quick start
 
