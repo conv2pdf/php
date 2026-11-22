@@ -17,7 +17,7 @@ namespace Conv2pdf;
 final class Conv2pdf
 {
     /** SDK version. Sent on every request as `User-Agent: conv2pdf-php/<version> (PHP <version>)`. */
-    public const VERSION = '1.3.0';
+    public const VERSION = '1.3.1';
 
     /** Seconds allowed to establish the connection (TCP + TLS). */
     private const CONNECT_TIMEOUT = 10;
