@@ -43,6 +43,13 @@ $refused = function (string $label, callable $fn) use (&$failures): ?Conv2pdfExc
     $failures[] = "$label: no exception";
     return null;
 };
+/** The temporary files that download() left next to $dest. */
+$leftovers = function (string $dest): array {
+    $prefix = basename($dest) . '.';
+    return array_values(array_filter(scandir(dirname($dest)) ?: [], function (string $f) use ($prefix): bool {
+        return strpos($f, $prefix) === 0 && substr($f, -5) === '.part';
+    }));
+};
 
 // --- The stub: started here unless CONV2PDF_STUB points at one.
 $baseUrl = (string) getenv('CONV2PDF_STUB');
@@ -180,26 +187,32 @@ if ($e !== null) {
     $check('tool_not_found: code and payload', $e->getErrorCode() === 'tool_not_found' && ($e->getPayload()['tool'] ?? null) === 'nope', $e->getPayload());
 }
 
-// 4. Download: to a file, by path / bare id / absolute URL, then the error paths
-//    (JSON body read back from the partial file, file removed).
+// 4. Download: to a file, by path / bare id / absolute URL, then the error paths (JSON
+//    body read back from the temporary file, the destination left as it was).
+file_put_contents($out, 'original');
 $c->download('/v1/download/ok', $out);
-$check('download by path writes the body', file_get_contents($out) === "%PDF-1.4\n%%EOF\n");
+$check('download by path replaces the destination', file_get_contents($out) === "%PDF-1.4\n%%EOF\n");
 $c->download('ok', $out);
 $check('download by bare job id', file_get_contents($out) === "%PDF-1.4\n%%EOF\n");
 $c->download("$baseUrl/download/ok", $out);
 $check('download by absolute URL', file_get_contents($out) === "%PDF-1.4\n%%EOF\n");
+$check('download: no temporary file left', $leftovers($out) === [], $leftovers($out));
 
 $e = $refused('download 410', function () use ($c, $out): void { $c->download('/v1/download/gone', $out); });
 if ($e !== null) {
     $check('download 410: status and code', $e->getStatus() === 410 && $e->getErrorCode() === 'job_deleted', $e->getPayload());
     $check('download 410: message', $e->getMessage() === 'Download failed (HTTP 410): job_deleted.', $e->getMessage());
-    $check('download 410: partial file removed', !file_exists($out));
+    $check('download 410: the destination is left as it was', file_get_contents($out) === "%PDF-1.4\n%%EOF\n");
+    $check('download 410: no temporary file left', $leftovers($out) === [], $leftovers($out));
 }
 $e = $refused('download 429', function () use ($c, $out): void { $c->download('limited', $out); });
 if ($e !== null) {
     $check('download 429: code and Retry-After', $e->getErrorCode() === 'rate_limited' && $e->getRetryAfter() === 11 && $e->isTransient(), $e->getPayload());
-    $check('download 429: partial file removed', !file_exists($out));
+    $check('download 429: the destination is left as it was', file_get_contents($out) === "%PDF-1.4\n%%EOF\n");
 }
+$fresh = $out . '-new.pdf';
+$refused('download 410 to a new path', function () use ($c, $fresh): void { $c->download('/v1/download/gone', $fresh); });
+$check('download 410 to a new path: no file created', !file_exists($fresh) && $leftovers($fresh) === [], $leftovers($fresh));
 
 // 5. Jobs and tools.
 $check('job()', $c->job('abc')['status'] === 'success');
@@ -221,6 +234,21 @@ if ($e !== null) {
 }
 $r = $c->convert('slow', $pdf);
 $check('slow conversion tolerated by default', $r['status'] === 'success', $r);
+
+// 7. A 200 whose body is not what the API documents, as a proxy or a wrong base URL
+//    could send: refused with the body in the payload, rather than returned to a caller
+//    who would read fields it does not have.
+$odd = new Conv2pdf('cpdf_live_functional', (string) preg_replace('~/v1$~', '/unexpected/v1', $baseUrl));
+$e = $refused('convert() answer without its fields', function () use ($odd, $pdf): void { $odd->convert('pdf-to-word', $pdf); });
+if ($e !== null) {
+    $check('unexpected convert(): status 200, no code', $e->getStatus() === 200 && $e->getErrorCode() === null, $e->getStatus());
+    $check('unexpected convert(): the body in the payload', $e->getPayload() === ['unexpected' => true], $e->getPayload());
+    $check('unexpected convert(): message', $e->getMessage() === 'Unexpected response (HTTP 200): not a conversion result.', $e->getMessage());
+}
+$e = $refused('tools() answer without its list', function () use ($odd): void { $odd->tools(); });
+if ($e !== null) {
+    $check('unexpected tools(): message', $e->getMessage() === 'Unexpected response (HTTP 200): no list of tools.', $e->getMessage());
+}
 
 foreach ([$pdf, $out] as $tmp) {
     if ($tmp !== '' && file_exists($tmp)) {

@@ -68,11 +68,15 @@ final class Conv2pdf
      * Lists the available tools, their file bounds and accepted extensions.
      *
      * @return array{tools: array<int, array<string, mixed>>}
-     * @throws Conv2pdfException
+     * @throws Conv2pdfException On an API or network error, or an answer without the list.
      */
     public function tools(): array
     {
-        return $this->requestJson('GET', '/tools');
+        $data = $this->requestJson('GET', '/tools', null, $status);
+        if (!isset($data['tools']) || !is_array($data['tools'])) {
+            throw new Conv2pdfException("Unexpected response (HTTP $status): no list of tools.", $status, null, $data);
+        }
+        return $data;
     }
 
     /**
@@ -95,7 +99,8 @@ final class Conv2pdf
      *                                          ['quality' => 'high'], ['password' => '...'], ['rotation' => 90],
      *                                          ['url' => 'https://example.com/'].
      * @return array{job_id: string, status: string, download_url: string, size_bytes: int, quota?: array<string, mixed>}
-     * @throws Conv2pdfException On an API error (4xx/5xx) or a network error.
+     * @throws Conv2pdfException On an API error (4xx/5xx), a network error, or an answer
+     *                           that is not a conversion result.
      * @throws \InvalidArgumentException If the list of files is empty, or a path does not exist.
      */
     public function convert(string $tool, $files, array $fields = []): array
@@ -124,7 +129,19 @@ final class Conv2pdf
             $post[$name] = (string) $value;
         }
 
-        return $this->requestJson('POST', '/convert/' . rawurlencode($tool), $post);
+        $job = $this->requestJson('POST', '/convert/' . rawurlencode($tool), $post, $status);
+        // The fields of the return type are checked: an answer without them would surface
+        // in the caller's code instead, as an undefined key and then a TypeError.
+        if (!isset($job['job_id'], $job['status'], $job['download_url'], $job['size_bytes'])
+            || !is_string($job['job_id'])
+            || !is_string($job['status'])
+            || !is_string($job['download_url'])
+            || !is_int($job['size_bytes'])
+            || (isset($job['quota']) && !is_array($job['quota']))
+        ) {
+            throw new Conv2pdfException("Unexpected response (HTTP $status): not a conversion result.", $status, null, $job);
+        }
+        return $job;
     }
 
     /**
@@ -158,15 +175,30 @@ final class Conv2pdf
      * Downloads the result of a conversion to a local file (GET /download/{jobId}).
      * Available for one hour after the conversion.
      *
+     * The file is written next to its destination under a temporary name, and takes its
+     * place once complete: a download that fails leaves the destination as it was, so a
+     * PDF compressed or rotated in place keeps its original.
+     *
      * @param string $jobIdOrUrl The download_url returned by convert(), or a bare job_id.
      * @param string $destPath   Local destination path.
-     * @throws Conv2pdfException On an API or network error (the partial file is removed).
-     * @throws \RuntimeException If the destination file cannot be opened for writing.
+     * @throws Conv2pdfException On an API or network error (the destination is left as it was).
+     * @throws \RuntimeException If the destination cannot be written: a folder, a read-only
+     *                           file, or a folder where no file can be created.
      */
     public function download(string $jobIdOrUrl, string $destPath): void
     {
         $url = $this->resolveDownloadUrl($jobIdOrUrl);
-        $fh = fopen($destPath, 'wb');
+        // The usual reasons are checked first, so that fopen() does not warn about them.
+        if (is_dir($destPath) || !is_dir(dirname($destPath)) || (is_file($destPath) && !is_writable($destPath))) {
+            throw new \RuntimeException("Cannot open destination file for writing: $destPath");
+        }
+        // Only what exists and is not a file, such as /dev/stdout, is written to directly.
+        $partPath = file_exists($destPath) && !is_file($destPath)
+            ? null
+            : $destPath . '.' . bin2hex(random_bytes(4)) . '.part';
+        // Silenced for the rest: Laravel and Symfony turn the warning into an
+        // ErrorException, which would replace the RuntimeException below.
+        $fh = @fopen($partPath ?? $destPath, $partPath === null ? 'wb' : 'xb');
         if ($fh === false) {
             throw new \RuntimeException("Cannot open destination file for writing: $destPath");
         }
@@ -187,31 +219,41 @@ final class Conv2pdf
         fclose($fh);
 
         if ($ok === false) {
-            @unlink($destPath);
+            if ($partPath !== null) {
+                @unlink($partPath);
+            }
             throw new Conv2pdfException("Network error during download: $err", 0, null);
         }
         if ($status < 200 || $status >= 300) {
-            // On error the JSON body ({error:…}) has been written to the file, so it is
-            // read back before the partial file is removed.
+            // On error the JSON body ({error:…}) has been written to the temporary file,
+            // so it is read back before the file is removed.
             $payload = [];
-            $errBody = @file_get_contents($destPath);
-            if ($errBody !== false) {
-                $decoded = json_decode($errBody, true);
-                if (is_array($decoded)) {
-                    $payload = $decoded;
+            if ($partPath !== null) {
+                $errBody = @file_get_contents($partPath);
+                if ($errBody !== false) {
+                    $decoded = json_decode($errBody, true);
+                    if (is_array($decoded)) {
+                        $payload = $decoded;
+                    }
                 }
+                @unlink($partPath);
             }
-            @unlink($destPath);
             throw self::apiError('Download', $status, $payload, $headers);
+        }
+        if ($partPath !== null && !@rename($partPath, $destPath)) {
+            @unlink($partPath);
+            throw new \RuntimeException("Cannot write destination file: $destPath");
         }
     }
 
     /**
-     * @param array<string, mixed>|null $post Multipart fields (with CURLFile) for a POST, null otherwise.
+     * @param array<string, mixed>|null $post   Multipart fields (with CURLFile) for a POST, null otherwise.
+     * @param int|null                  $status Set to the HTTP status of the answer.
+     * @param-out int $status
      * @return array<string, mixed>
      * @throws Conv2pdfException
      */
-    private function requestJson(string $method, string $path, ?array $post = null): array
+    private function requestJson(string $method, string $path, ?array $post = null, ?int &$status = null): array
     {
         $headers = [];
         $ch = curl_init($this->baseUrl . $path);

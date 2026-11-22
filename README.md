@@ -95,6 +95,8 @@ $c->deleteJob($job['job_id']);       // delete now (otherwise purged automatical
 
 A job that succeeded and still has its file answers 200. Otherwise `job()` and `download()` raise `409 job_not_ready` (the payload carries `status`: `pending`, `failed` or `rejected`), `410 job_deleted` after a `deleteJob()`, or `410 file_expired` past the one-hour retention. A 410 is final: do not retry.
 
+`download()` writes the file next to its destination under a temporary name, and moves it into place once complete. A download that fails leaves the destination as it was, so a PDF compressed or rotated in place keeps its original.
+
 ### Listing the tools
 
 ```php

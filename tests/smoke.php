@@ -48,6 +48,13 @@ $check = function (string $label, bool $ok) use (&$failures): void {
         $failures[] = $label;
     }
 };
+/** The temporary files that download() left next to $dest. */
+$leftovers = function (string $dest): array {
+    $prefix = basename($dest) . '.';
+    return array_values(array_filter(scandir(dirname($dest)) ?: [], function (string $f) use ($prefix): bool {
+        return strpos($f, $prefix) === 0 && substr($f, -5) === '.part';
+    }));
+};
 
 $pdf = tempnam(sys_get_temp_dir(), 'smoke') ?: '';
 file_put_contents($pdf, "%PDF-1.4\n%%EOF\n");
@@ -77,6 +84,33 @@ $expect('convert() mixed list', Conv2pdfException::class, function () use ($c, $
 foreach (['http://127.0.0.1:9/v1/download/abc', '/v1/download/abc', 'abc'] as $target) {
     $expect("download($target)", Conv2pdfException::class, function () use ($c, $target, $out): void { $c->download($target, $out); });
 }
+
+// A download that fails leaves an existing destination as it was, with no temporary file
+// next to it. A destination that cannot be written raises a RuntimeException before any
+// request, and without a warning: Laravel and Symfony would turn one into an ErrorException.
+file_put_contents($out, 'original');
+$expect('download() over an existing file', Conv2pdfException::class, function () use ($c, $out): void { $c->download('abc', $out); });
+$check('download() failed: the destination is left as it was', file_get_contents($out) === 'original');
+$check('download() failed: no temporary file left', $leftovers($out) === []);
+$readOnly = $out . '-read-only';
+file_put_contents($readOnly, 'kept');
+chmod($readOnly, 0444);
+$unwritable = [
+    'into a missing folder' => $out . '-missing' . DIRECTORY_SEPARATOR . 'out.pdf',
+    'onto a folder' => sys_get_temp_dir(),
+    'onto a read-only file' => $readOnly,
+];
+foreach ($unwritable as $what => $dest) {
+    try {
+        $c->download('abc', $dest);
+        $failures[] = "download() $what: no exception";
+    } catch (Throwable $e) {
+        $check("download() $what: RuntimeException before any request, got " . get_class($e), get_class($e) === RuntimeException::class);
+    }
+}
+$check('download() onto a read-only file: the file is left as it was', file_get_contents($readOnly) === 'kept');
+chmod($readOnly, 0644);
+unlink($readOnly);
 
 // Unparsable base URL: exercises the branch where parse_url() fails.
 $broken = new Conv2pdf('cpdf_live_smoke', '///:not-a-url', 2);

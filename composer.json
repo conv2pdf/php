@@ -17,7 +17,13 @@
         "ext-curl": "*",
         "ext-json": "*"
     },
+    "require-dev": {
+        "phpstan/phpstan": "^2.3"
+    },
     "autoload": {
         "psr-4": { "Conv2pdf\\": "src/" }
+    },
+    "scripts": {
+        "analyse": "phpstan analyse"
     }
 }

@@ -63,6 +63,13 @@ $seen = [
     'content_type' => (string) ($_SERVER['CONTENT_TYPE'] ?? ''),
 ];
 
+// An API that answers 200 with a body the SDK does not know, as a proxy or a wrong base
+// URL could: under /unexpected/, every request gets the same one.
+if (strpos($path, '/unexpected/') === 0) {
+    json(200, ['unexpected' => true]);
+    return;
+}
+
 if ($path === '/v1/tools' && $method === 'GET') {
     json(200, [
         'tools' => [['id' => 'pdf-to-word', 'min_files' => 1, 'max_files' => 1, 'accepted_exts' => ['.pdf']]],

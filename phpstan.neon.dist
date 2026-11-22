@@ -1,0 +1,17 @@
+# composer analyse: PHPStan on src, level 8, no error allowed. Level 9 would want the
+# keys of the decoded JSON proven to be strings, which no check can do without a cast.
+parameters:
+    level: 8
+    paths:
+        - src
+    # The versions the SDK supports (composer.json, CI matrix): PHPStan would otherwise
+    # check against the PHP it runs on only.
+    phpVersion:
+        min: 80000
+        max: 80699
+    ignoreErrors:
+        # CURLStringFile only exists from PHP 8.1. The SDK still runs on 8.0, where no one
+        # can pass one and the instanceof in toCurlFile() is simply false.
+        -
+            identifier: class.notFound
+            message: '#CURLStringFile#'

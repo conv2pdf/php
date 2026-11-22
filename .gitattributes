@@ -2,7 +2,8 @@
 
 # Kept out of the dist archive (composer require): users only get src/,
 # composer.json, README.md and LICENSE.
-/.gitattributes export-ignore
-/.github       export-ignore
-/.gitignore    export-ignore
-/tests         export-ignore
+/.gitattributes    export-ignore
+/.github          export-ignore
+/.gitignore       export-ignore
+/phpstan.neon.dist export-ignore
+/tests            export-ignore

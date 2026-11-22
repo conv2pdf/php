@@ -27,6 +27,12 @@ jobs:
         run: php -d error_reporting=E_ALL tests/smoke.php
       - name: Functional test against a local stub of the API (fails on any Deprecated/Warning/Notice)
         run: php -d error_reporting=E_ALL tests/functional.php
+      # Once is enough: phpstan.neon.dist checks src against every PHP from 8.0 to 8.6.
+      - name: Static analysis (PHPStan level 8)
+        if: matrix.php == '8.4'
+        run: |
+          composer install --no-progress --no-interaction
+          vendor/bin/phpstan analyse --no-progress
 
   release:
     name: GitHub release
