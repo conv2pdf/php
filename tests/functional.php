@@ -214,6 +214,25 @@ $fresh = $out . '-new.pdf';
 $refused('download 410 to a new path', function () use ($c, $fresh): void { $c->download('/v1/download/gone', $fresh); });
 $check('download 410 to a new path: no file created', !file_exists($fresh) && $leftovers($fresh) === [], $leftovers($fresh));
 
+// The file replaced keeps its permissions, and a symbolic link is followed rather than
+// replaced, as when the destination was written in place. POSIX only: Windows has no
+// such permissions, and creating a symbolic link there takes a privilege.
+if (DIRECTORY_SEPARATOR === '/') {
+    chmod($out, 0600);
+    $c->download('ok', $out);
+    clearstatcache();
+    $check('download: the file replaced keeps its permissions', (fileperms($out) & 0777) === 0600, decoct(fileperms($out) & 0777));
+    $link = $out . '-link';
+    symlink($out, $link);
+    file_put_contents($out, 'original');
+    $c->download('ok', $link);
+    clearstatcache();
+    $check('download through a symbolic link: the link stays', is_link($link) && readlink($link) === $out, is_link($link));
+    $check('download through a symbolic link: the file it points to is replaced', file_get_contents($out) === "%PDF-1.4\n%%EOF\n");
+    $check('download through a symbolic link: no temporary file left', $leftovers($out) === [] && $leftovers($link) === []);
+    unlink($link);
+}
+
 // 5. Jobs and tools.
 $check('job()', $c->job('abc')['status'] === 'success');
 $d = $c->deleteJob('abc');

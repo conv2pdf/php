@@ -177,7 +177,8 @@ final class Conv2pdf
      *
      * The file is written next to its destination under a temporary name, and takes its
      * place once complete: a download that fails leaves the destination as it was, so a
-     * PDF compressed or rotated in place keeps its original.
+     * PDF compressed or rotated in place keeps its original. A file replaced keeps its
+     * permissions, and a symbolic link is followed.
      *
      * @param string $jobIdOrUrl The download_url returned by convert(), or a bare job_id.
      * @param string $destPath   Local destination path.
@@ -188,6 +189,11 @@ final class Conv2pdf
     public function download(string $jobIdOrUrl, string $destPath): void
     {
         $url = $this->resolveDownloadUrl($jobIdOrUrl);
+        // A symbolic link is followed, as when the file was written in place: the file it
+        // points to is the one replaced, and the link stays.
+        if (is_link($destPath)) {
+            $destPath = realpath($destPath) ?: $destPath;
+        }
         // The usual reasons are checked first, so that fopen() does not warn about them.
         if (is_dir($destPath) || !is_dir(dirname($destPath)) || (is_file($destPath) && !is_writable($destPath))) {
             throw new \RuntimeException("Cannot open destination file for writing: $destPath");
@@ -240,9 +246,17 @@ final class Conv2pdf
             }
             throw self::apiError('Download', $status, $payload, $headers);
         }
-        if ($partPath !== null && !@rename($partPath, $destPath)) {
-            @unlink($partPath);
-            throw new \RuntimeException("Cannot write destination file: $destPath");
+        if ($partPath !== null) {
+            // The new file takes the permissions of the one it replaces, as when it was
+            // written in place: a PDF only its owner could read stays so.
+            $perms = is_file($destPath) ? @fileperms($destPath) : false;
+            if ($perms !== false) {
+                @chmod($partPath, $perms & 0777);
+            }
+            if (!@rename($partPath, $destPath)) {
+                @unlink($partPath);
+                throw new \RuntimeException("Cannot write destination file: $destPath");
+            }
         }
     }
 
